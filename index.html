@@ -69,7 +69,7 @@
                     <input id="searchInput" type="text" placeholder="Search recipe keyword..." class="p-2 border rounded w-full sm:w-auto flex-1">
                     <select id="dietFilter" class="p-2 border rounded w-full sm:w-auto">
                         <option value="all">All Diet Types</option>
-                        <!-- Populated dynamically from filterOptions.dietTypes -->
+                        <option value="vegetarian">Vegetarian</option>
                     </select>
                 </div>
             </section>
@@ -114,7 +114,6 @@
 
         async function initDashboard() {
             try {
-                // 1. Fetch nutritional insights for filterOptions and cached charts/heatmap matrix
                 const insightsRes = await fetch(`https://diet-dashboard-api.azurewebsites.net/api/nutritional-insights?diet_type=all`);
                 if (insightsRes.ok) {
                     cachedInsightsData = await insightsRes.json();
@@ -125,22 +124,24 @@
                 console.warn('Could not load insights contract data, using defaults.');
             }
 
-            // 2. Fetch recipes for table cards & scatter plot
             await fetchRecipes();
         }
 
         function populateDietDropdown(dietTypes) {
             const select = document.getElementById('dietFilter');
-            // Keep "All Diet Types" as the first option
             select.innerHTML = '<option value="all">All Diet Types</option>';
-            if (dietTypes && Array.isArray(dietTypes)) {
-                dietTypes.forEach(diet => {
-                    const opt = document.createElement('option');
-                    opt.value = diet.toLowerCase();
-                    opt.textContent = diet;
-                    select.appendChild(opt);
-                });
-            }
+            
+            // Explicitly ensure Vegetarian is added along with dynamic API options
+            const optionsList = ['Vegetarian', ...(dietTypes || [])];
+            // Deduplicate options if needed
+            const uniqueOptions = [...new Set(optionsList)];
+
+            uniqueOptions.forEach(diet => {
+                const opt = document.createElement('option');
+                opt.value = diet.toLowerCase();
+                opt.textContent = diet;
+                select.appendChild(opt);
+            });
         }
 
         async function fetchRecipes() {
@@ -160,7 +161,7 @@
                 fullCachedRecipes = [
                     { recipeName: "Vegan Quinoa Salad", dietType: "Vegan", calories: 350, protein: 12, carbs: 45 },
                     { recipeName: "Keto Avocado Egg Bowl", dietType: "Keto", calories: 450, protein: 22, carbs: 5 },
-                    { recipeName: "Dash Mediterranean Plate", dietType: "Dash", calories: 300, protein: 15, carbs: 40 },
+                    { recipeName: "Vegetarian Lentil Soup", dietType: "Vegetarian", calories: 300, protein: 15, carbs: 40 },
                     { recipeName: "Paleo Grilled Chicken", dietType: "Paleo", calories: 500, protein: 40, carbs: 2 }
                 ];
                 applyClientFiltersAndRender();
@@ -176,7 +177,6 @@
                 return matchesSearch && matchesDiet;
             });
 
-            // Render Scatter Plot using recipe points
             renderScatterPlot(fullCachedRecipes);
 
             const start = (currentState.page - 1) * currentState.limit;
@@ -186,7 +186,6 @@
         }
 
         function renderApiCharts(insights) {
-            // Bar Chart from insights.barChart
             if (insights.barChart) {
                 const barCtx = document.getElementById('barChart').getContext('2d');
                 if (window.myBarChart) window.myBarChart.destroy();
@@ -204,7 +203,6 @@
                 });
             }
 
-            // Pie Chart from insights.pieChart
             if (insights.pieChart) {
                 const pieCtx = document.getElementById('pieChart').getContext('2d');
                 if (window.myPieChart) window.myPieChart.destroy();
@@ -221,7 +219,6 @@
                 });
             }
 
-            // Heatmap Matrix from insights.heatmap contract
             if (insights.heatmap && insights.heatmap.values) {
                 renderHeatmapMatrix(insights.heatmap);
             }
@@ -229,11 +226,9 @@
 
         function renderHeatmapMatrix(heatmapData) {
             const heatCtx = document.getElementById('heatmapCanvas').getContext('2d');
-            // Transform matrix values into chart cells or display correlation cleanly
             const metrics = heatmapData.metrics;
-            const matrixValues = heatmapData.values; // e.g. 3x3 array
+            const matrixValues = heatmapData.values;
 
-            // Flatten matrix into scatter/bubble points {x, y, v} for a grid matrix rendering
             const points = [];
             matrixValues.forEach((row, rIdx) => {
                 row.forEach((val, cIdx) => {
@@ -329,7 +324,6 @@
             });
         }
 
-        // Event Listeners
         let searchTimeout;
         document.getElementById('searchInput').addEventListener('input', (e) => {
             clearTimeout(searchTimeout);
@@ -362,7 +356,6 @@
             applyClientFiltersAndRender();
         });
 
-        // Initialize App
         initDashboard();
     </script>
 </body>
