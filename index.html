@@ -215,10 +215,15 @@
                     datasets: [{
                         label: 'Avg Protein (g)',
                         data: avgProtein,
-                        backgroundColor: '#3b82f6'
+                        backgroundColor: ['#3b82f6', '#ef4444', '#10b981', '#f59e0b']
                     }]
                 },
-                options: { responsive: true, maintainAspectRatio: false }
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
+                }
             });
 
             // 2. Scatter Plot
@@ -234,7 +239,11 @@
                         backgroundColor: '#10b981'
                     }]
                 },
-                options: { responsive: true, maintainAspectRatio: false }
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                }
             });
 
             // 3. Pie Chart
@@ -249,7 +258,13 @@
                         backgroundColor: ['#3b82f6', '#ef4444', '#10b981', '#f59e0b']
                     }]
                 },
-                options: { responsive: true, maintainAspectRatio: false }
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } 
+                    }
+                }
             });
         }
 
@@ -259,7 +274,7 @@
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(() => {
                 currentState.search = e.target.value.trim();
-                currentState.page = 1;
+                currentState.page = 1; // Reset to page 1 on new search
                 document.getElementById('pageIndicator').innerText = currentState.page;
                 fetchRecipes();
             }, 300);
@@ -267,7 +282,7 @@
 
         document.getElementById('dietFilter').addEventListener('change', (e) => {
             currentState.diet = e.target.value;
-            currentState.page = 1;
+            currentState.page = 1; // Reset to page 1 on filter change
             document.getElementById('pageIndicator').innerText = currentState.page;
             fetchRecipes();
         });
