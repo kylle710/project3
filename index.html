@@ -110,58 +110,60 @@
             limit: 9
         };
 
+        let fullCachedRecipes = [];
+
         async function fetchRecipes() {
             try {
-                const params = new URLSearchParams({
-                    search: currentState.search,
-                    diet: currentState.diet,
-                    page: currentState.page,
-                    limit: currentState.limit
-                });
-
-                const response = await fetch(`https://diet-dashboard-api.azurewebsites.net/api/recipes?${params.toString()}`, {
+                // Fetch a large pool of items so client-side filtering and charts have full multi-diet visibility
+                const response = await fetch(`https://diet-dashboard-api.azurewebsites.net/api/recipes?limit=1000`, {
                     method: 'GET'
                 });
 
-                if (!response.ok) throw new Error('Failed to fetch data from backend API');
+                if (!response.ok) throw new Error('Failed to fetch from API');
 
                 const data = await response.json();
                 
-                // Render cards using paginated recipe list
-                renderRecipes(data.recipes || []); 
-                
-                // Render charts using scatterPoints to include full multi-diet scope across views
-                renderCharts(data.scatterPoints || data.recipes || []);
+                // Use scatterPoints as our master client-side dataset since it contains diverse diet classifications
+                fullCachedRecipes = data.scatterPoints || data.recipes || [];
+
+                applyClientFiltersAndRender();
             } catch (error) {
-                console.warn('API connection failed or blocked. Using local mock data fallback.');
+                console.warn('API error or CORS issue, using robust local fallback.');
                 
-                const mockRecipes = [
-                    { recipeName: "Vegan Quinoa Salad", dietType: "Vegan", calories: 350, protein: 12, carbs: 45 },
-                    { recipeName: "Keto Avocado Egg Bowl", dietType: "Keto", calories: 450, protein: 22, carbs: 5 },
-                    { recipeName: "Vegetarian Lentil Soup", dietType: "Vegetarian", calories: 300, protein: 15, carbs: 40 },
-                    { recipeName: "Paleo Grilled Chicken", dietType: "Paleo", calories: 500, protein: 40, carbs: 2 },
-                    { recipeName: "Vegan Tofu Stir Fry", dietType: "Vegan", calories: 320, protein: 18, carbs: 30 },
-                    { recipeName: "Keto Salmon Asparagus", dietType: "Keto", calories: 550, protein: 35, carbs: 6 },
-                    { recipeName: "Vegetarian Margherita Pizza", dietType: "Vegetarian", calories: 600, protein: 20, carbs: 70 },
-                    { recipeName: "Paleo Beef Stew", dietType: "Paleo", calories: 480, protein: 38, carbs: 12 },
-                    { recipeName: "Vegan Chia Pudding", dietType: "Vegan", calories: 220, protein: 8, carbs: 25 },
-                    { recipeName: "Keto Bacon Omelet", dietType: "Keto", calories: 400, protein: 25, carbs: 3 }
+                fullCachedRecipes = [
+                    { recipeName: "Vegan Quinoa Salad", dietType: "vegan", calories: 350, protein: 12, carbs: 45 },
+                    { recipeName: "Keto Avocado Egg Bowl", dietType: "keto", calories: 450, protein: 22, carbs: 5 },
+                    { recipeName: "Vegetarian Lentil Soup", dietType: "vegetarian", calories: 300, protein: 15, carbs: 40 },
+                    { recipeName: "Paleo Grilled Chicken", dietType: "paleo", calories: 500, protein: 40, carbs: 2 },
+                    { recipeName: "Vegan Tofu Stir Fry", dietType: "vegan", calories: 320, protein: 18, carbs: 30 },
+                    { recipeName: "Keto Salmon Asparagus", dietType: "keto", calories: 550, protein: 35, carbs: 6 },
+                    { recipeName: "Vegetarian Margherita Pizza", dietType: "vegetarian", calories: 600, protein: 20, carbs: 70 },
+                    { recipeName: "Paleo Beef Stew", dietType: "paleo", calories: 480, protein: 38, carbs: 12 },
+                    { recipeName: "Vegan Chia Pudding", dietType: "vegan", calories: 220, protein: 8, carbs: 25 },
+                    { recipeName: "Keto Bacon Omelet", dietType: "keto", calories: 400, protein: 25, carbs: 3 }
                 ];
 
-                let filtered = mockRecipes.filter(r => {
-                    const name = r.recipeName || '';
-                    const dType = (r.dietType || '').toLowerCase();
-                    const matchesSearch = name.toLowerCase().includes(currentState.search.toLowerCase());
-                    const matchesDiet = currentState.diet === 'all' || dType === currentState.diet.toLowerCase();
-                    return matchesSearch && matchesDiet;
-                });
-
-                const start = (currentState.page - 1) * currentState.limit;
-                const paginatedSlice = filtered.slice(start, start + currentState.limit);
-
-                renderRecipes(paginatedSlice);
-                renderCharts(mockRecipes);
+                applyClientFiltersAndRender();
             }
+        }
+
+        function applyClientFiltersAndRender() {
+            let filtered = fullCachedRecipes.filter(r => {
+                const name = r.recipeName || r.name || '';
+                const dType = (r.dietType || r.diet || '').toLowerCase().trim();
+                const matchesSearch = name.toLowerCase().includes(currentState.search.toLowerCase());
+                const matchesDiet = currentState.diet === 'all' || dType === currentState.diet.toLowerCase();
+                return matchesSearch && matchesDiet;
+            });
+
+            // Render charts using the full cached pool so aggregations don't break
+            renderCharts(fullCachedRecipes);
+
+            // Paginate local results for cards
+            const start = (currentState.page - 1) * currentState.limit;
+            const paginatedSlice = filtered.slice(start, start + currentState.limit);
+
+            renderRecipes(paginatedSlice);
         }
 
         function renderRecipes(recipes) {
@@ -183,7 +185,7 @@
                 card.className = 'bg-white p-4 rounded shadow';
                 card.innerHTML = `
                     <h4 class="font-bold text-lg">${name}</h4>
-                    <p class="text-sm text-gray-600 mt-1">Diet Type: <span class="font-semibold">${diet}</span></p>
+                    <p class="text-sm text-gray-600 mt-1">Diet Type: <span class="font-semibold uppercase">${diet}</span></p>
                     <p class="text-sm text-gray-500 mt-2">Calories: ${calories} | Protein: ${protein}</p>
                 `;
                 container.appendChild(card);
@@ -285,7 +287,7 @@
                 currentState.search = e.target.value.trim();
                 currentState.page = 1;
                 document.getElementById('pageIndicator').innerText = currentState.page;
-                fetchRecipes();
+                applyClientFiltersAndRender();
             }, 300);
         });
 
@@ -293,7 +295,7 @@
             currentState.diet = e.target.value;
             currentState.page = 1;
             document.getElementById('pageIndicator').innerText = currentState.page;
-            fetchRecipes();
+            applyClientFiltersAndRender();
         });
 
         // Pagination Event Listeners
@@ -301,14 +303,14 @@
             if (currentState.page > 1) {
                 currentState.page--;
                 document.getElementById('pageIndicator').innerText = currentState.page;
-                fetchRecipes();
+                applyClientFiltersAndRender();
             }
         });
 
         document.getElementById('nextPageBtn').addEventListener('click', () => {
             currentState.page++;
             document.getElementById('pageIndicator').innerText = currentState.page;
-            fetchRecipes();
+            applyClientFiltersAndRender();
         });
 
         // Initial data fetch on load
