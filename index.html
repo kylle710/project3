@@ -160,10 +160,10 @@
             } catch (error) {
                 console.warn('API error, using local fallback.');
                 fullCachedRecipes = [
-                    { recipeName: "Vegan Quinoa Salad", dietType: "Vegan", calories: 350, protein: 12, carbs: 45 },
-                    { recipeName: "Keto Avocado Egg Bowl", dietType: "Keto", calories: 450, protein: 22, carbs: 5 },
-                    { recipeName: "Dash Mediterranean Plate", dietType: "Dash", calories: 300, protein: 15, carbs: 40 },
-                    { recipeName: "Paleo Grilled Chicken", dietType: "Paleo", calories: 500, protein: 40, carbs: 2 }
+                    { recipeName: "Vegan Quinoa Salad", dietType: "Vegan", protein: 12, carbs: 45, fat: 8 },
+                    { recipeName: "Keto Avocado Egg Bowl", dietType: "Keto", protein: 22, carbs: 5, fat: 35 },
+                    { recipeName: "Dash Mediterranean Plate", dietType: "Dash", protein: 15, carbs: 40, fat: 10 },
+                    { recipeName: "Paleo Grilled Chicken", dietType: "Paleo", protein: 40, carbs: 2, fat: 12 }
                 ];
                 applyClientFiltersAndRender();
             }
@@ -311,15 +311,20 @@
             recipes.forEach(recipe => {
                 const name = recipe.recipeName || recipe.name || 'Recipe';
                 const diet = recipe.dietType || recipe.diet || 'N/A';
-                const calories = recipe.calories || recipe.cal || 'N/A';
-                const protein = recipe.protein || recipe.prot || 'N/A';
+                
+                const protein = Number(recipe.protein) || Number(recipe.prot) || 0;
+                const carbs = Number(recipe.carbs) || Number(recipe.carb) || 0;
+                const fat = Number(recipe.fat) || 0;
+                const calculatedCalories = Math.round((protein * 4) + (carbs * 4) + (fat * 9));
+                
+                const calories = recipe.calories || recipe.cal || (calculatedCalories > 0 ? calculatedCalories : 'N/A');
 
                 const card = document.createElement('div');
                 card.className = 'bg-white p-4 rounded shadow';
                 card.innerHTML = `
                     <h4 class="font-bold text-lg">${name}</h4>
                     <p class="text-sm text-gray-600 mt-1">Diet Type: <span class="font-semibold uppercase">${diet}</span></p>
-                    <p class="text-sm text-gray-500 mt-2">Calories: ${calories} | Protein: ${protein}</p>
+                    <p class="text-sm text-gray-500 mt-2">Calories: ${calories} kcal | Protein: ${protein}g</p>
                 `;
                 container.appendChild(card);
             });
