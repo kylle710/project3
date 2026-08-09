@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -125,22 +125,22 @@
                 
                 // Local mock dataset to ensure search, filtering, and pagination work seamlessly during development
                 const mockRecipes = [
-                    { title: "Vegan Quinoa Salad", diet_type: "vegan", calories: 350, protein: 12 },
-                    { title: "Keto Avocado Egg Bowl", diet_type: "keto", calories: 450, protein: 22 },
-                    { title: "Vegetarian Lentil Soup", diet_type: "vegetarian", calories: 300, protein: 15 },
-                    { title: "Paleo Grilled Chicken", diet_type: "paleo", calories: 500, protein: 40 },
-                    { title: "Vegan Tofu Stir Fry", diet_type: "vegan", calories: 320, protein: 18 },
-                    { title: "Keto Salmon Asparagus", diet_type: "keto", calories: 550, protein: 35 },
-                    { title: "Vegetarian Margherita Pizza", diet_type: "vegetarian", calories: 600, protein: 20 },
-                    { title: "Paleo Beef Stew", diet_type: "paleo", calories: 480, protein: 38 },
-                    { title: "Vegan Chia Pudding", diet_type: "vegan", calories: 220, protein: 8 },
-                    { title: "Keto Bacon Omelet", diet_type: "keto", calories: 400, protein: 25 }
+                    { recipeName: "Vegan Quinoa Salad", dietType: "vegan", calories: 350, protein: 12 },
+                    { recipeName: "Keto Avocado Egg Bowl", dietType: "keto", calories: 450, protein: 22 },
+                    { recipeName: "Vegetarian Lentil Soup", dietType: "vegetarian", calories: 300, protein: 15 },
+                    { recipeName: "Paleo Grilled Chicken", dietType: "paleo", calories: 500, protein: 40 },
+                    { recipeName: "Vegan Tofu Stir Fry", dietType: "vegan", calories: 320, protein: 18 },
+                    { recipeName: "Keto Salmon Asparagus", dietType: "keto", calories: 550, protein: 35 },
+                    { recipeName: "Vegetarian Margherita Pizza", dietType: "vegetarian", calories: 600, protein: 20 },
+                    { recipeName: "Paleo Beef Stew", dietType: "paleo", calories: 480, protein: 38 },
+                    { recipeName: "Vegan Chia Pudding", dietType: "vegan", calories: 220, protein: 8 },
+                    { recipeName: "Keto Bacon Omelet", dietType: "keto", calories: 400, protein: 25 }
                 ];
 
                 // Filter mock data locally based on state
                 let filtered = mockRecipes.filter(r => {
-                    const matchesSearch = r.title.toLowerCase().includes(currentState.search.toLowerCase());
-                    const matchesDiet = currentState.diet === 'all' || r.diet_type === currentState.diet;
+                    const matchesSearch = r.recipeName.toLowerCase().includes(currentState.search.toLowerCase());
+                    const matchesDiet = currentState.diet === 'all' || r.dietType === currentState.diet;
                     return matchesSearch && matchesDiet;
                 });
 
@@ -165,8 +165,8 @@
                 const card = document.createElement('div');
                 card.className = 'bg-white p-4 rounded shadow';
                 card.innerHTML = `
-                    <h4 class="font-bold text-lg">${recipe.title || recipe.name || 'Recipe'}</h4>
-                    <p class="text-sm text-gray-600 mt-1">Diet Type: <span class="font-semibold">${recipe.diet_type || recipe.diet || 'N/A'}</span></p>
+                    <h4 class="font-bold text-lg">${recipe.recipeName || 'Recipe'}</h4>
+                    <p class="text-sm text-gray-600 mt-1">Diet Type: <span class="font-semibold">${recipe.dietType || 'N/A'}</span></p>
                     <p class="text-sm text-gray-500 mt-2">Calories: ${recipe.calories || 'N/A'} | Protein: ${recipe.protein || 'N/A'}</p>
                 `;
                 container.appendChild(card);
