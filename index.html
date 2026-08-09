@@ -110,6 +110,9 @@
             limit: 9
         };
 
+        // Keep a reference to the full dataset for chart rendering so charts don't break when a filter is applied
+        let globalAllRecipes = [];
+
         async function fetchRecipes() {
             try {
                 const params = new URLSearchParams({
@@ -128,12 +131,15 @@
 
                 const data = await response.json();
                 const recipeList = data.recipes || data;
+                
+                // If backend supports filtering, this is the filtered list. 
+                // For charts, we ideally want the comprehensive list, but we fallback safely.
+                globalAllRecipes = recipeList;
                 renderRecipes(recipeList); 
-                renderCharts(recipeList);
+                renderCharts(globalAllRecipes);
             } catch (error) {
                 console.warn('API connection failed or blocked. Using local mock data filter for UI/pagination testing.');
                 
-                // Local mock dataset to ensure search, filtering, and pagination work seamlessly during development
                 const mockRecipes = [
                     { recipeName: "Vegan Quinoa Salad", dietType: "vegan", calories: 350, protein: 12, carbs: 45 },
                     { recipeName: "Keto Avocado Egg Bowl", dietType: "keto", calories: 450, protein: 22, carbs: 5 },
@@ -147,10 +153,14 @@
                     { recipeName: "Keto Bacon Omelet", dietType: "keto", calories: 400, protein: 25, carbs: 3 }
                 ];
 
-                // Filter mock data locally based on state
+                globalAllRecipes = mockRecipes;
+
+                // Filter mock data locally based on state case-insensitively
                 let filtered = mockRecipes.filter(r => {
-                    const matchesSearch = r.recipeName.toLowerCase().includes(currentState.search.toLowerCase());
-                    const matchesDiet = currentState.diet === 'all' || r.dietType === currentState.diet;
+                    const name = r.recipeName || r.name || '';
+                    const dType = (r.dietType || r.diet || '').toLowerCase();
+                    const matchesSearch = name.toLowerCase().includes(currentState.search.toLowerCase());
+                    const matchesDiet = currentState.diet === 'all' || dType === currentState.diet.toLowerCase();
                     return matchesSearch && matchesDiet;
                 });
 
@@ -159,7 +169,7 @@
                 const paginatedSlice = filtered.slice(start, start + currentState.limit);
 
                 renderRecipes(paginatedSlice);
-                renderCharts(mockRecipes);
+                renderCharts(globalAllRecipes);
             }
         }
 
@@ -173,12 +183,17 @@
             }
 
             recipes.forEach(recipe => {
+                const name = recipe.recipeName || recipe.name || 'Recipe';
+                const diet = recipe.dietType || recipe.diet || 'N/A';
+                const calories = recipe.calories || recipe.cal || 'N/A';
+                const protein = recipe.protein || recipe.prot || 'N/A';
+
                 const card = document.createElement('div');
                 card.className = 'bg-white p-4 rounded shadow';
                 card.innerHTML = `
-                    <h4 class="font-bold text-lg">${recipe.recipeName || 'Recipe'}</h4>
-                    <p class="text-sm text-gray-600 mt-1">Diet Type: <span class="font-semibold">${recipe.dietType || 'N/A'}</span></p>
-                    <p class="text-sm text-gray-500 mt-2">Calories: ${recipe.calories || 'N/A'} | Protein: ${recipe.protein || 'N/A'}</p>
+                    <h4 class="font-bold text-lg">${name}</h4>
+                    <p class="text-sm text-gray-600 mt-1">Diet Type: <span class="font-semibold">${diet}</span></p>
+                    <p class="text-sm text-gray-500 mt-2">Calories: ${calories} | Protein: ${protein}</p>
                 `;
                 container.appendChild(card);
             });
@@ -190,10 +205,10 @@
             const dietTotals = { vegan: 0, keto: 0, vegetarian: 0, paleo: 0 };
 
             recipes.forEach(r => {
-                const type = (r.dietType || '').toLowerCase();
+                const type = (r.dietType || r.diet || '').toLowerCase().trim();
                 if (dietCounts.hasOwnProperty(type)) {
                     dietCounts[type]++;
-                    proteinByDiet[type] += (r.protein || 0);
+                    proteinByDiet[type] += (Number(r.protein) || Number(r.prot) || 0);
                     dietTotals[type]++;
                 }
             });
@@ -228,7 +243,10 @@
 
             // 2. Scatter Plot
             const scatterCtx = document.getElementById('scatterPlot').getContext('2d');
-            const scatterPoints = recipes.map(r => ({ x: r.protein || 0, y: r.carbs || 0 }));
+            const scatterPoints = recipes.map(r => ({ 
+                x: Number(r.protein) || Number(r.prot) || 0, 
+                y: Number(r.carbs) || Number(r.carb) || 0 
+            }));
             if (window.myScatterChart) window.myScatterChart.destroy();
             window.myScatterChart = new Chart(scatterCtx, {
                 type: 'scatter',
@@ -274,7 +292,7 @@
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(() => {
                 currentState.search = e.target.value.trim();
-                currentState.page = 1; // Reset to page 1 on new search
+                currentState.page = 1;
                 document.getElementById('pageIndicator').innerText = currentState.page;
                 fetchRecipes();
             }, 300);
@@ -282,7 +300,7 @@
 
         document.getElementById('dietFilter').addEventListener('change', (e) => {
             currentState.diet = e.target.value;
-            currentState.page = 1; // Reset to page 1 on filter change
+            currentState.page = 1;
             document.getElementById('pageIndicator').innerText = currentState.page;
             fetchRecipes();
         });
