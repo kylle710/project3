@@ -6,6 +6,8 @@
     <title>Nutritional Insights - Dashboard</title>
     <!-- Tailwind CSS CDN -->
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.0/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-gray-100">
 
@@ -41,7 +43,7 @@
                     <div class="bg-white p-4 shadow-lg rounded-lg">
                         <h3 class="font-semibold">Heatmap</h3>
                         <p class="text-sm text-gray-600">Nutrient correlations.</p>
-                        <div id="heatmap" class="w-full h-48"></div>
+                        <div id="heatmap" class="w-full h-48 flex items-center justify-center text-gray-400 text-sm">Custom View</div>
                     </div>
 
                     <div class="bg-white p-4 shadow-lg rounded-lg">
@@ -119,22 +121,24 @@
                 if (!response.ok) throw new Error('Failed to fetch data from backend API');
 
                 const data = await response.json();
-                renderRecipes(data.recipes || data); 
+                const recipeList = data.recipes || data;
+                renderRecipes(recipeList); 
+                renderCharts(recipeList);
             } catch (error) {
                 console.warn('API connection failed or blocked. Using local mock data filter for UI/pagination testing.');
                 
                 // Local mock dataset to ensure search, filtering, and pagination work seamlessly during development
                 const mockRecipes = [
-                    { recipeName: "Vegan Quinoa Salad", dietType: "vegan", calories: 350, protein: 12 },
-                    { recipeName: "Keto Avocado Egg Bowl", dietType: "keto", calories: 450, protein: 22 },
-                    { recipeName: "Vegetarian Lentil Soup", dietType: "vegetarian", calories: 300, protein: 15 },
-                    { recipeName: "Paleo Grilled Chicken", dietType: "paleo", calories: 500, protein: 40 },
-                    { recipeName: "Vegan Tofu Stir Fry", dietType: "vegan", calories: 320, protein: 18 },
-                    { recipeName: "Keto Salmon Asparagus", dietType: "keto", calories: 550, protein: 35 },
-                    { recipeName: "Vegetarian Margherita Pizza", dietType: "vegetarian", calories: 600, protein: 20 },
-                    { recipeName: "Paleo Beef Stew", dietType: "paleo", calories: 480, protein: 38 },
-                    { recipeName: "Vegan Chia Pudding", dietType: "vegan", calories: 220, protein: 8 },
-                    { recipeName: "Keto Bacon Omelet", dietType: "keto", calories: 400, protein: 25 }
+                    { recipeName: "Vegan Quinoa Salad", dietType: "vegan", calories: 350, protein: 12, carbs: 45 },
+                    { recipeName: "Keto Avocado Egg Bowl", dietType: "keto", calories: 450, protein: 22, carbs: 5 },
+                    { recipeName: "Vegetarian Lentil Soup", dietType: "vegetarian", calories: 300, protein: 15, carbs: 40 },
+                    { recipeName: "Paleo Grilled Chicken", dietType: "paleo", calories: 500, protein: 40, carbs: 2 },
+                    { recipeName: "Vegan Tofu Stir Fry", dietType: "vegan", calories: 320, protein: 18, carbs: 30 },
+                    { recipeName: "Keto Salmon Asparagus", dietType: "keto", calories: 550, protein: 35, carbs: 6 },
+                    { recipeName: "Vegetarian Margherita Pizza", dietType: "vegetarian", calories: 600, protein: 20, carbs: 70 },
+                    { recipeName: "Paleo Beef Stew", dietType: "paleo", calories: 480, protein: 38, carbs: 12 },
+                    { recipeName: "Vegan Chia Pudding", dietType: "vegan", calories: 220, protein: 8, carbs: 25 },
+                    { recipeName: "Keto Bacon Omelet", dietType: "keto", calories: 400, protein: 25, carbs: 3 }
                 ];
 
                 // Filter mock data locally based on state
@@ -149,6 +153,7 @@
                 const paginatedSlice = filtered.slice(start, start + currentState.limit);
 
                 renderRecipes(paginatedSlice);
+                renderCharts(mockRecipes); // Render charts based on full dataset context
             }
         }
 
@@ -170,6 +175,76 @@
                     <p class="text-sm text-gray-500 mt-2">Calories: ${recipe.calories || 'N/A'} | Protein: ${recipe.protein || 'N/A'}</p>
                 `;
                 container.appendChild(card);
+            });
+        }
+
+        function renderCharts(recipes) {
+            // Count diet types for Pie Chart & Bar Chart categories
+            const dietCounts = { vegan: 0, keto: 0, vegetarian: 0, paleo: 0 };
+            const proteinByDiet = { vegan: 0, keto: 0, vegetarian: 0, paleo: 0 };
+            const dietTotals = { vegan: 0, keto: 0, vegetarian: 0, paleo: 0 };
+
+            recipes.forEach(r => {
+                const type = (r.dietType || '').toLowerCase();
+                if (dietCounts.hasOwnProperty(type)) {
+                    dietCounts[type]++;
+                    proteinByDiet[type] += (r.protein || 0);
+                    dietTotals[type]++;
+                }
+            });
+
+            const avgProtein = [
+                dietTotals.vegan ? proteinByDiet.vegan / dietTotals.vegan : 0,
+                dietTotals.keto ? proteinByDiet.keto / dietTotals.keto : 0,
+                dietTotals.vegetarian ? proteinByDiet.vegetarian / dietTotals.vegetarian : 0,
+                dietTotals.paleo ? proteinByDiet.paleo / dietTotals.paleo : 0
+            ];
+
+            // 1. Bar Chart (Average Protein by Diet Type)
+            const barCtx = document.getElementById('barChart').getContext('2d');
+            if (window.myBarChart) window.myBarChart.destroy();
+            window.myBarChart = new Chart(barCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Vegan', 'Keto', 'Vegetarian', 'Paleo'],
+                    datasets: [{
+                        label: 'Avg Protein (g)',
+                        data: avgProtein,
+                        backgroundColor: '#3b82f6'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            // 2. Scatter Plot (Protein vs Carbs)
+            const scatterCtx = document.getElementById('scatterPlot').getContext('2d');
+            const scatterPoints = recipes.map(r => ({ x: r.protein || 0, y: r.carbs || 0 }));
+            if (window.myScatterChart) window.myScatterChart.destroy();
+            window.myScatterChart = new Chart(scatterCtx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Protein vs Carbs',
+                        data: scatterPoints,
+                        backgroundColor: '#10b981'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            // 3. Pie Chart (Recipe Distribution by Diet Type)
+            const pieCtx = document.getElementById('pieChart').getContext('2d');
+            if (window.myPieChart) window.myPieChart.destroy();
+            window.myPieChart = new Chart(pieCtx, {
+                type: 'pie',
+                data: {
+                    labels: ['Vegan', 'Keto', 'Vegetarian', 'Paleo'],
+                    datasets: [{
+                        data: [dietCounts.vegan, dietCounts.keto, dietCounts.vegetarian, dietCounts.paleo],
+                        backgroundColor: ['#3b82f6', '#ef4444', '#10b981', '#f59e0b']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
             });
         }
 
