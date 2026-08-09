@@ -28,28 +28,34 @@
             <section class="mb-8">
                 <h2 class="text-2xl font-semibold mb-4">Explore Nutritional Insights</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div class="bg-white p-4 shadow-lg rounded-lg">
+                    <div class="bg-white p-4 shadow-lg rounded-lg flex flex-col">
                         <h3 class="font-semibold">Bar Chart</h3>
-                        <p class="text-sm text-gray-600">Average macronutrient content by diet type.</p>
-                        <canvas id="barChart" class="w-full h-48"></canvas>
+                        <p class="text-sm text-gray-600 mb-2">Average macronutrient content by diet type.</p>
+                        <div class="relative h-48 w-full">
+                            <canvas id="barChart"></canvas>
+                        </div>
                     </div>
 
-                    <div class="bg-white p-4 shadow-lg rounded-lg">
+                    <div class="bg-white p-4 shadow-lg rounded-lg flex flex-col">
                         <h3 class="font-semibold">Scatter Plot</h3>
-                        <p class="text-sm text-gray-600">Nutrient relationships (protein vs carbs).</p>
-                        <canvas id="scatterPlot" class="w-full h-48"></canvas>
+                        <p class="text-sm text-gray-600 mb-2">Nutrient relationships (protein vs carbs).</p>
+                        <div class="relative h-48 w-full">
+                            <canvas id="scatterPlot"></canvas>
+                        </div>
                     </div>
 
-                    <div class="bg-white p-4 shadow-lg rounded-lg">
+                    <div class="bg-white p-4 shadow-lg rounded-lg flex flex-col">
                         <h3 class="font-semibold">Heatmap</h3>
-                        <p class="text-sm text-gray-600">Nutrient correlations.</p>
-                        <div id="heatmap" class="w-full h-48 flex items-center justify-center text-gray-400 text-sm">Custom View</div>
+                        <p class="text-sm text-gray-600 mb-2">Nutrient correlations.</p>
+                        <div id="heatmap" class="relative h-48 w-full flex items-center justify-center text-gray-400 text-sm bg-gray-50 rounded">Custom View</div>
                     </div>
 
-                    <div class="bg-white p-4 shadow-lg rounded-lg">
+                    <div class="bg-white p-4 shadow-lg rounded-lg flex flex-col">
                         <h3 class="font-semibold">Pie Chart</h3>
-                        <p class="text-sm text-gray-600">Recipe distribution by diet type.</p>
-                        <canvas id="pieChart" class="w-full h-48"></canvas>
+                        <p class="text-sm text-gray-600 mb-2">Recipe distribution by diet type.</p>
+                        <div class="relative h-48 w-full">
+                            <canvas id="pieChart"></canvas>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -153,7 +159,7 @@
                 const paginatedSlice = filtered.slice(start, start + currentState.limit);
 
                 renderRecipes(paginatedSlice);
-                renderCharts(mockRecipes); // Render charts based on full dataset context
+                renderCharts(mockRecipes);
             }
         }
 
@@ -179,7 +185,6 @@
         }
 
         function renderCharts(recipes) {
-            // Count diet types for Pie Chart & Bar Chart categories
             const dietCounts = { vegan: 0, keto: 0, vegetarian: 0, paleo: 0 };
             const proteinByDiet = { vegan: 0, keto: 0, vegetarian: 0, paleo: 0 };
             const dietTotals = { vegan: 0, keto: 0, vegetarian: 0, paleo: 0 };
@@ -200,7 +205,7 @@
                 dietTotals.paleo ? proteinByDiet.paleo / dietTotals.paleo : 0
             ];
 
-            // 1. Bar Chart (Average Protein by Diet Type)
+            // 1. Bar Chart
             const barCtx = document.getElementById('barChart').getContext('2d');
             if (window.myBarChart) window.myBarChart.destroy();
             window.myBarChart = new Chart(barCtx, {
@@ -216,7 +221,7 @@
                 options: { responsive: true, maintainAspectRatio: false }
             });
 
-            // 2. Scatter Plot (Protein vs Carbs)
+            // 2. Scatter Plot
             const scatterCtx = document.getElementById('scatterPlot').getContext('2d');
             const scatterPoints = recipes.map(r => ({ x: r.protein || 0, y: r.carbs || 0 }));
             if (window.myScatterChart) window.myScatterChart.destroy();
@@ -232,7 +237,7 @@
                 options: { responsive: true, maintainAspectRatio: false }
             });
 
-            // 3. Pie Chart (Recipe Distribution by Diet Type)
+            // 3. Pie Chart
             const pieCtx = document.getElementById('pieChart').getContext('2d');
             if (window.myPieChart) window.myPieChart.destroy();
             window.myPieChart = new Chart(pieCtx, {
@@ -254,7 +259,7 @@
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(() => {
                 currentState.search = e.target.value.trim();
-                currentState.page = 1; // Reset to page 1 on new search
+                currentState.page = 1;
                 document.getElementById('pageIndicator').innerText = currentState.page;
                 fetchRecipes();
             }, 300);
@@ -262,7 +267,7 @@
 
         document.getElementById('dietFilter').addEventListener('change', (e) => {
             currentState.diet = e.target.value;
-            currentState.page = 1; // Reset to page 1 on filter change
+            currentState.page = 1;
             document.getElementById('pageIndicator').innerText = currentState.page;
             fetchRecipes();
         });
