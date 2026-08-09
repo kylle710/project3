@@ -46,9 +46,9 @@
 
                     <div class="bg-white p-4 shadow-lg rounded-lg flex flex-col">
                         <h3 class="font-semibold">Heatmap / Correlation</h3>
-                        <p class="text-sm text-gray-600 mb-2">Nutrient distribution summary.</p>
-                        <div class="relative h-48 w-full">
-                            <canvas id="heatmapChart"></canvas>
+                        <p class="text-sm text-gray-600 mb-2">Nutrient correlations.</p>
+                        <div class="relative h-48 w-full flex items-center justify-center">
+                            <canvas id="heatmapCanvas"></canvas>
                         </div>
                     </div>
 
@@ -69,11 +69,7 @@
                     <input id="searchInput" type="text" placeholder="Search recipe keyword..." class="p-2 border rounded w-full sm:w-auto flex-1">
                     <select id="dietFilter" class="p-2 border rounded w-full sm:w-auto">
                         <option value="all">All Diet Types</option>
-                        <option value="vegan">Vegan</option>
-                        <option value="keto">Keto</option>
-                        <option value="vegetarian">Vegetarian</option>
-                        <option value="paleo">Paleo</option>
-                        <option value="mediterranean">Mediterranean</option>
+                        <!-- Populated dynamically from filterOptions.dietTypes -->
                     </select>
                 </div>
             </section>
@@ -114,10 +110,41 @@
         };
 
         let fullCachedRecipes = [];
+        let cachedInsightsData = null;
+
+        async function initDashboard() {
+            try {
+                // 1. Fetch nutritional insights for filterOptions and cached charts/heatmap matrix
+                const insightsRes = await fetch(`https://diet-dashboard-api.azurewebsites.net/api/nutritional-insights?diet_type=all`);
+                if (insightsRes.ok) {
+                    cachedInsightsData = await insightsRes.json();
+                    populateDietDropdown(cachedInsightsData.filterOptions.dietTypes);
+                    renderApiCharts(cachedInsightsData);
+                }
+            } catch (err) {
+                console.warn('Could not load insights contract data, using defaults.');
+            }
+
+            // 2. Fetch recipes for table cards & scatter plot
+            await fetchRecipes();
+        }
+
+        function populateDietDropdown(dietTypes) {
+            const select = document.getElementById('dietFilter');
+            // Keep "All Diet Types" as the first option
+            select.innerHTML = '<option value="all">All Diet Types</option>';
+            if (dietTypes && Array.isArray(dietTypes)) {
+                dietTypes.forEach(diet => {
+                    const opt = document.createElement('option');
+                    opt.value = diet.toLowerCase();
+                    opt.textContent = diet;
+                    select.appendChild(opt);
+                });
+            }
+        }
 
         async function fetchRecipes() {
             try {
-                // Fetching from the live backend endpoint matching API_CONTRACT_1
                 const response = await fetch(`https://diet-dashboard-api.azurewebsites.net/api/recipes?limit=1000`, {
                     method: 'GET'
                 });
@@ -129,44 +156,151 @@
 
                 applyClientFiltersAndRender();
             } catch (error) {
-                console.warn('API error or CORS issue, using robust local fallback.');
+                console.warn('API error, using local fallback.');
                 fullCachedRecipes = [
-                    { recipeName: "Vegan Quinoa Salad", dietType: "vegan", calories: 350, protein: 12, carbs: 45 },
-                    { recipeName: "Keto Avocado Egg Bowl", dietType: "keto", calories: 450, protein: 22, carbs: 5 },
-                    { recipeName: "Vegetarian Lentil Soup", dietType: "vegetarian", calories: 300, protein: 15, carbs: 40 },
-                    { recipeName: "Paleo Grilled Chicken", dietType: "paleo", calories: 500, protein: 40, carbs: 2 },
-                    { recipeName: "Mediterranean Fish", dietType: "mediterranean", calories: 420, protein: 30, carbs: 15 }
+                    { recipeName: "Vegan Quinoa Salad", dietType: "Vegan", calories: 350, protein: 12, carbs: 45 },
+                    { recipeName: "Keto Avocado Egg Bowl", dietType: "Keto", calories: 450, protein: 22, carbs: 5 },
+                    { recipeName: "Dash Mediterranean Plate", dietType: "Dash", calories: 300, protein: 15, carbs: 40 },
+                    { recipeName: "Paleo Grilled Chicken", dietType: "Paleo", calories: 500, protein: 40, carbs: 2 }
                 ];
                 applyClientFiltersAndRender();
             }
         }
 
-        function normalizeDietKey(rawDiet) {
-            if (!rawDiet) return 'other';
-            const d = rawDiet.toLowerCase().trim();
-            if (d.includes('vegan')) return 'vegan';
-            if (d.includes('keto')) return 'keto';
-            if (d.includes('veg')) return 'vegetarian'; // Catches variations like "Vegetarian" or "Veggie"
-            if (d.includes('paleo')) return 'paleo';
-            if (d.includes('mediterranean') || d.includes('med')) return 'mediterranean';
-            return 'other';
-        }
-
         function applyClientFiltersAndRender() {
             let filtered = fullCachedRecipes.filter(r => {
                 const name = r.recipeName || r.name || '';
-                const dTypeKey = normalizeDietKey(r.dietType || r.diet);
+                const dType = (r.dietType || r.diet || '').toLowerCase().trim();
                 const matchesSearch = name.toLowerCase().includes(currentState.search.toLowerCase());
-                const matchesDiet = currentState.diet === 'all' || dTypeKey === currentState.diet.toLowerCase();
+                const matchesDiet = currentState.diet === 'all' || dType === currentState.diet.toLowerCase();
                 return matchesSearch && matchesDiet;
             });
 
-            renderCharts(fullCachedRecipes);
+            // Render Scatter Plot using recipe points
+            renderScatterPlot(fullCachedRecipes);
 
             const start = (currentState.page - 1) * currentState.limit;
             const paginatedSlice = filtered.slice(start, start + currentState.limit);
 
             renderRecipes(paginatedSlice);
+        }
+
+        function renderApiCharts(insights) {
+            // Bar Chart from insights.barChart
+            if (insights.barChart) {
+                const barCtx = document.getElementById('barChart').getContext('2d');
+                if (window.myBarChart) window.myBarChart.destroy();
+                window.myBarChart = new Chart(barCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: insights.barChart.labels,
+                        datasets: [
+                            { label: 'Protein', data: insights.barChart.protein, backgroundColor: '#3b82f6' },
+                            { label: 'Carbs', data: insights.barChart.carbs, backgroundColor: '#ef4444' },
+                            { label: 'Fat', data: insights.barChart.fat, backgroundColor: '#10b981' }
+                        ]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+                });
+            }
+
+            // Pie Chart from insights.pieChart
+            if (insights.pieChart) {
+                const pieCtx = document.getElementById('pieChart').getContext('2d');
+                if (window.myPieChart) window.myPieChart.destroy();
+                window.myPieChart = new Chart(pieCtx, {
+                    type: 'pie',
+                    data: {
+                        labels: insights.pieChart.labels,
+                        datasets: [{
+                            data: insights.pieChart.values,
+                            backgroundColor: ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6']
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } } } }
+                });
+            }
+
+            // Heatmap Matrix from insights.heatmap contract
+            if (insights.heatmap && insights.heatmap.values) {
+                renderHeatmapMatrix(insights.heatmap);
+            }
+        }
+
+        function renderHeatmapMatrix(heatmapData) {
+            const heatCtx = document.getElementById('heatmapCanvas').getContext('2d');
+            // Transform matrix values into chart cells or display correlation cleanly
+            const metrics = heatmapData.metrics;
+            const matrixValues = heatmapData.values; // e.g. 3x3 array
+
+            // Flatten matrix into scatter/bubble points {x, y, v} for a grid matrix rendering
+            const points = [];
+            matrixValues.forEach((row, rIdx) => {
+                row.forEach((val, cIdx) => {
+                    points.push({ x: cIdx, y: rIdx, v: val });
+                });
+            });
+
+            if (window.myHeatChart) window.myHeatChart.destroy();
+            window.myHeatChart = new Chart(heatCtx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Correlation',
+                        data: points.map(p => ({ x: p.x, y: p.y, r: Math.abs(p.v) * 15 })),
+                        backgroundColor: points.map(p => p.v === 1 ? '#3b82f6' : (p.v > 0 ? '#10b981' : '#ef4444'))
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => {
+                                    const p = points[ctx.dataIndex];
+                                    return `${metrics[p.y]} vs ${metrics[p.x]}: ${p.v}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { 
+                            ticks: { callback: (val) => metrics[val] || '', stepSize: 1 },
+                            min: -0.5, max: 2.5
+                        },
+                        y: { 
+                            ticks: { callback: (val) => metrics[val] || '', stepSize: 1 },
+                            min: -0.5, max: 2.5
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderScatterPlot(recipes) {
+            const scatterCtx = document.getElementById('scatterPlot').getContext('2d');
+            const scatterPoints = recipes.map(r => ({ 
+                x: Number(r.protein) || Number(r.prot) || 0, 
+                y: Number(r.carbs) || Number(r.carb) || 0 
+            }));
+            if (window.myScatterChart) window.myScatterChart.destroy();
+            window.myScatterChart = new Chart(scatterCtx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Protein vs Carbs',
+                        data: scatterPoints,
+                        backgroundColor: '#10b981'
+                    }]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                }
+            });
         }
 
         function renderRecipes(recipes) {
@@ -195,121 +329,7 @@
             });
         }
 
-        function renderCharts(recipes) {
-            const categories = ['vegan', 'keto', 'vegetarian', 'paleo', 'mediterranean'];
-            const labels = ['Vegan', 'Keto', 'Vegetarian', 'Paleo', 'Mediterranean'];
-            const colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6'];
-
-            const dietCounts = { vegan: 0, keto: 0, vegetarian: 0, paleo: 0, mediterranean: 0 };
-            const proteinByDiet = { vegan: 0, keto: 0, vegetarian: 0, paleo: 0, mediterranean: 0 };
-            const dietTotals = { vegan: 0, keto: 0, vegetarian: 0, paleo: 0, mediterranean: 0 };
-
-            recipes.forEach(r => {
-                const key = normalizeDietKey(r.dietType || r.diet);
-                if (dietCounts.hasOwnProperty(key)) {
-                    dietCounts[key]++;
-                    proteinByDiet[key] += (Number(r.protein) || Number(r.prot) || 0);
-                    dietTotals[key]++;
-                }
-            });
-
-            const avgProtein = categories.map(cat => dietTotals[cat] ? proteinByDiet[cat] / dietTotals[cat] : 0);
-            const countData = categories.map(cat => dietCounts[cat]);
-
-            // 1. Bar Chart
-            const barCtx = document.getElementById('barChart').getContext('2d');
-            if (window.myBarChart) window.myBarChart.destroy();
-            window.myBarChart = new Chart(barCtx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Avg Protein (g)',
-                        data: avgProtein,
-                        backgroundColor: colors
-                    }]
-                },
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true } }
-                }
-            });
-
-            // 2. Scatter Plot
-            const scatterCtx = document.getElementById('scatterPlot').getContext('2d');
-            const scatterPoints = recipes.map(r => ({ 
-                x: Number(r.protein) || Number(r.prot) || 0, 
-                y: Number(r.carbs) || Number(r.carb) || 0 
-            }));
-            if (window.myScatterChart) window.myScatterChart.destroy();
-            window.myScatterChart = new Chart(scatterCtx, {
-                type: 'scatter',
-                data: {
-                    datasets: [{
-                        label: 'Protein vs Carbs',
-                        data: scatterPoints,
-                        backgroundColor: '#10b981'
-                    }]
-                },
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } }
-                }
-            });
-
-            // 3. Heatmap / Correlation Chart Upgrade (Replaces static text box)
-            const heatCtx = document.getElementById('heatmapChart').getContext('2d');
-            const heatPoints = recipes.map(r => ({
-                x: Number(r.calories) || Number(r.cal) || 0,
-                y: Number(r.protein) || Number(r.prot) || 0
-            }));
-            if (window.myHeatChart) window.myHeatChart.destroy();
-            window.myHeatChart = new Chart(heatCtx, {
-                type: 'scatter',
-                data: {
-                    datasets: [{
-                        label: 'Calories vs Protein',
-                        data: heatPoints,
-                        backgroundColor: '#8b5cf6'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { title: { display: true, text: 'Calories' } },
-                        y: { title: { display: true, text: 'Protein' } }
-                    }
-                }
-            });
-
-            // 4. Pie Chart
-            const pieCtx = document.getElementById('pieChart').getContext('2d');
-            if (window.myPieChart) window.myPieChart.destroy();
-            window.myPieChart = new Chart(pieCtx, {
-                type: 'pie',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: countData,
-                        backgroundColor: colors
-                    }]
-                },
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false,
-                    plugins: { 
-                        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } } 
-                    }
-                }
-            });
-        }
-
-        // Event Listeners for Search & Filters
+        // Event Listeners
         let searchTimeout;
         document.getElementById('searchInput').addEventListener('input', (e) => {
             clearTimeout(searchTimeout);
@@ -328,7 +348,6 @@
             applyClientFiltersAndRender();
         });
 
-        // Pagination Event Listeners
         document.getElementById('prevPageBtn').addEventListener('click', () => {
             if (currentState.page > 1) {
                 currentState.page--;
@@ -343,7 +362,8 @@
             applyClientFiltersAndRender();
         });
 
-        fetchRecipes();
+        // Initialize App
+        initDashboard();
     </script>
 </body>
 </html>
