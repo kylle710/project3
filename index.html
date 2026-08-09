@@ -47,8 +47,8 @@
                     <div class="bg-white p-4 shadow-lg rounded-lg flex flex-col">
                         <h3 class="font-semibold">Heatmap / Correlation</h3>
                         <p class="text-sm text-gray-600 mb-2">Nutrient correlations.</p>
-                        <div class="relative h-48 w-full flex items-center justify-center">
-                            <canvas id="heatmapCanvas"></canvas>
+                        <div id="heatmapContainer" class="relative h-48 w-full flex flex-col justify-center items-center">
+                            <!-- Rendered dynamically as a proper grid matrix -->
                         </div>
                     </div>
 
@@ -122,6 +122,7 @@
                 }
             } catch (err) {
                 console.warn('Could not load insights contract data, using defaults.');
+                renderDefaultHeatmap();
             }
 
             await fetchRecipes();
@@ -222,56 +223,72 @@
 
             if (insights.heatmap && insights.heatmap.values) {
                 renderHeatmapMatrix(insights.heatmap);
+            } else {
+                renderDefaultHeatmap();
             }
         }
 
         function renderHeatmapMatrix(heatmapData) {
-            const heatCtx = document.getElementById('heatmapCanvas').getContext('2d');
-            const metrics = heatmapData.metrics;
+            const container = document.getElementById('heatmapContainer');
+            container.innerHTML = '';
+
+            const metrics = heatmapData.metrics || ['Protein', 'Carbs', 'Fat'];
             const matrixValues = heatmapData.values;
 
-            const points = [];
+            const gridTable = document.createElement('div');
+            gridTable.className = 'grid grid-cols-4 gap-1 text-xs w-full h-full p-2 items-center text-center';
+
+            // Top-left empty corner
+            gridTable.appendChild(document.createElement('div'));
+
+            // Column headers
+            metrics.forEach(m => {
+                const header = document.createElement('div');
+                header.className = 'font-bold text-gray-700 truncate';
+                header.textContent = m.substring(0, 3);
+                gridTable.appendChild(header);
+            });
+
+            // Rows
             matrixValues.forEach((row, rIdx) => {
+                // Row header
+                const rowHeader = document.createElement('div');
+                rowHeader.className = 'font-bold text-gray-700 truncate text-left';
+                rowHeader.textContent = metrics[rIdx].substring(0, 3);
+                gridTable.appendChild(rowHeader);
+
                 row.forEach((val, cIdx) => {
-                    points.push({ x: cIdx, y: rIdx, v: val });
+                    const cell = document.createElement('div');
+                    cell.className = 'h-8 rounded flex items-center justify-center font-semibold text-white shadow-sm';
+                    
+                    // Color mapping based on correlation value (-1 to 1)
+                    if (val === 1) {
+                        cell.style.backgroundColor = '#3b82f6'; // Strong positive (blue)
+                    } else if (val > 0) {
+                        cell.style.backgroundColor = '#10b981'; // Moderate positive (green)
+                    } else if (val < 0) {
+                        cell.style.backgroundColor = '#ef4444'; // Negative (red)
+                    } else {
+                        cell.style.backgroundColor = '#9ca3af'; // Neutral (gray)
+                    }
+
+                    cell.textContent = Number(val).toFixed(1);
+                    cell.title = `${metrics[rIdx]} vs ${metrics[cIdx]}: ${val}`;
+                    gridTable.appendChild(cell);
                 });
             });
 
-            if (window.myHeatChart) window.myHeatChart.destroy();
-            window.myHeatChart = new Chart(heatCtx, {
-                type: 'scatter',
-                data: {
-                    datasets: [{
-                        label: 'Correlation',
-                        data: points.map(p => ({ x: p.x, y: p.y, r: Math.abs(p.v) * 15 })),
-                        backgroundColor: points.map(p => p.v === 1 ? '#3b82f6' : (p.v > 0 ? '#10b981' : '#ef4444'))
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { 
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: (ctx) => {
-                                    const p = points[ctx.dataIndex];
-                                    return `${metrics[p.y]} vs ${metrics[p.x]}: ${p.v}`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: { 
-                            ticks: { callback: (val) => metrics[val] || '', stepSize: 1 },
-                            min: -0.5, max: 2.5
-                        },
-                        y: { 
-                            ticks: { callback: (val) => metrics[val] || '', stepSize: 1 },
-                            min: -0.5, max: 2.5
-                        }
-                    }
-                }
+            container.appendChild(gridTable);
+        }
+
+        function renderDefaultHeatmap() {
+            renderHeatmapMatrix({
+                metrics: ["Protein", "Carbs", "Fat"],
+                values: [
+                    [1.0, 0.2, -0.1],
+                    [0.2, 1.0, 0.4],
+                    [-0.1, 0.4, 1.0]
+                ]
             });
         }
 
