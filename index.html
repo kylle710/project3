@@ -1,0 +1,214 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nutritional Insights - Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.0/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+
+    <!-- MAIN DASHBOARD -->
+    <div id="mainDashboard">
+        
+        <!-- HEADER -->
+        <header class="bg-blue-600 p-4 text-white flex justify-between items-center">
+            <h1 class="text-2xl font-semibold">Nutritional Insights Dashboard</h1>
+            <div class="flex items-center gap-4">
+                <span id="loggedUserName" class="text-sm font-medium">Welcome, Developer</span>
+            </div>
+        </header>
+
+        <main class="container mx-auto p-6">
+            
+            <!-- Explore Nutritional Insights (Visualizations) -->
+            <section class="mb-8">
+                <h2 class="text-2xl font-semibold mb-4">Explore Nutritional Insights</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-white p-4 shadow-lg rounded-lg">
+                        <h3 class="font-semibold">Bar Chart</h3>
+                        <p class="text-sm text-gray-600">Average macronutrient content by diet type.</p>
+                        <canvas id="barChart" class="w-full h-48"></canvas>
+                    </div>
+
+                    <div class="bg-white p-4 shadow-lg rounded-lg">
+                        <h3 class="font-semibold">Scatter Plot</h3>
+                        <p class="text-sm text-gray-600">Nutrient relationships (protein vs carbs).</p>
+                        <canvas id="scatterPlot" class="w-full h-48"></canvas>
+                    </div>
+
+                    <div class="bg-white p-4 shadow-lg rounded-lg">
+                        <h3 class="font-semibold">Heatmap</h3>
+                        <p class="text-sm text-gray-600">Nutrient correlations.</p>
+                        <div id="heatmap" class="w-full h-48"></div>
+                    </div>
+
+                    <div class="bg-white p-4 shadow-lg rounded-lg">
+                        <h3 class="font-semibold">Pie Chart</h3>
+                        <p class="text-sm text-gray-600">Recipe distribution by diet type.</p>
+                        <canvas id="pieChart" class="w-full h-48"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Search & Filters -->
+            <section class="mb-8">
+                <h2 class="text-2xl font-semibold mb-4">Search & Filters</h2>
+                <div class="flex flex-wrap gap-4">
+                    <input id="searchInput" type="text" placeholder="Search recipe keyword..." class="p-2 border rounded w-full sm:w-auto flex-1">
+                    <select id="dietFilter" class="p-2 border rounded w-full sm:w-auto">
+                        <option value="all">All Diet Types</option>
+                        <option value="vegan">Vegan</option>
+                        <option value="keto">Keto</option>
+                        <option value="vegetarian">Vegetarian</option>
+                        <option value="paleo">Paleo</option>
+                    </select>
+                </div>
+            </section>
+
+            <!-- Dynamic Recipe Results Grid -->
+            <section class="mb-8">
+                <h2 class="text-2xl font-semibold mb-4">Recipes Result</h2>
+                <div id="recipeResultsContainer" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white p-4 rounded shadow">
+                        <h4 class="font-bold text-lg">Loading recipes...</h4>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Pagination Controls -->
+            <section>
+                <h2 class="text-2xl font-semibold mb-4">Pagination</h2>
+                <div id="paginationContainer" class="flex justify-center gap-2 mt-4 items-center">
+                    <button id="prevPageBtn" class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400 transition">Previous</button>
+                    <span id="pageIndicator" class="px-3 py-1 bg-blue-600 text-white rounded">1</span>
+                    <button id="nextPageBtn" class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400 transition">Next</button>
+                </div>
+            </section>
+        </main>
+
+        <footer class="bg-blue-600 p-4 text-white text-center mt-10">
+            <p>&copy; 2026 Nutritional Insights. All Rights Reserved.</p>
+        </footer>
+    </div>
+
+    <!-- Dashboard Interaction & Fetch Script -->
+    <script>
+        let currentState = {
+            search: '',
+            diet: 'all',
+            page: 1,
+            limit: 9
+        };
+
+        async function fetchRecipes() {
+            try {
+                const params = new URLSearchParams({
+                    search: currentState.search,
+                    diet: currentState.diet,
+                    page: currentState.page,
+                    limit: currentState.limit
+                });
+
+                // Request data from backend API endpoint
+                const response = await fetch(`https://diet-dashboard-api.azurewebsites.net/api/recipes?${params.toString()}`, {
+                    method: 'GET'
+                });
+
+                if (!response.ok) throw new Error('Failed to fetch data from backend API');
+
+                const data = await response.json();
+                renderRecipes(data.recipes || data); 
+            } catch (error) {
+                console.warn('API connection failed or blocked. Using local mock data filter for UI/pagination testing.');
+                
+                // Local mock dataset to ensure search, filtering, and pagination work seamlessly during development
+                const mockRecipes = [
+                    { title: "Vegan Quinoa Salad", diet_type: "vegan", calories: 350, protein: 12 },
+                    { title: "Keto Avocado Egg Bowl", diet_type: "keto", calories: 450, protein: 22 },
+                    { title: "Vegetarian Lentil Soup", diet_type: "vegetarian", calories: 300, protein: 15 },
+                    { title: "Paleo Grilled Chicken", diet_type: "paleo", calories: 500, protein: 40 },
+                    { title: "Vegan Tofu Stir Fry", diet_type: "vegan", calories: 320, protein: 18 },
+                    { title: "Keto Salmon Asparagus", diet_type: "keto", calories: 550, protein: 35 },
+                    { title: "Vegetarian Margherita Pizza", diet_type: "vegetarian", calories: 600, protein: 20 },
+                    { title: "Paleo Beef Stew", diet_type: "paleo", calories: 480, protein: 38 },
+                    { title: "Vegan Chia Pudding", diet_type: "vegan", calories: 220, protein: 8 },
+                    { title: "Keto Bacon Omelet", diet_type: "keto", calories: 400, protein: 25 }
+                ];
+
+                // Filter mock data locally based on state
+                let filtered = mockRecipes.filter(r => {
+                    const matchesSearch = r.title.toLowerCase().includes(currentState.search.toLowerCase());
+                    const matchesDiet = currentState.diet === 'all' || r.diet_type === currentState.diet;
+                    return matchesSearch && matchesDiet;
+                });
+
+                // Simulate pagination slice on mock data
+                const start = (currentState.page - 1) * currentState.limit;
+                const paginatedSlice = filtered.slice(start, start + currentState.limit);
+
+                renderRecipes(paginatedSlice);
+            }
+        }
+
+        function renderRecipes(recipes) {
+            const container = document.getElementById('recipeResultsContainer');
+            container.innerHTML = '';
+
+            if (!recipes || recipes.length === 0) {
+                container.innerHTML = `<p class="text-gray-500 col-span-3">No recipes found matching your criteria.</p>`;
+                return;
+            }
+
+            recipes.forEach(recipe => {
+                const card = document.createElement('div');
+                card.className = 'bg-white p-4 rounded shadow';
+                card.innerHTML = `
+                    <h4 class="font-bold text-lg">${recipe.title || recipe.name || 'Recipe'}</h4>
+                    <p class="text-sm text-gray-600 mt-1">Diet Type: <span class="font-semibold">${recipe.diet_type || recipe.diet || 'N/A'}</span></p>
+                    <p class="text-sm text-gray-500 mt-2">Calories: ${recipe.calories || 'N/A'} | Protein: ${recipe.protein || 'N/A'}</p>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Event Listeners for Search & Filters
+        let searchTimeout;
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                currentState.search = e.target.value.trim();
+                currentState.page = 1; // Reset to page 1 on new search
+                document.getElementById('pageIndicator').innerText = currentState.page;
+                fetchRecipes();
+            }, 300);
+        });
+
+        document.getElementById('dietFilter').addEventListener('change', (e) => {
+            currentState.diet = e.target.value;
+            currentState.page = 1; // Reset to page 1 on filter change
+            document.getElementById('pageIndicator').innerText = currentState.page;
+            fetchRecipes();
+        });
+
+        // Pagination Event Listeners
+        document.getElementById('prevPageBtn').addEventListener('click', () => {
+            if (currentState.page > 1) {
+                currentState.page--;
+                document.getElementById('pageIndicator').innerText = currentState.page;
+                fetchRecipes();
+            }
+        });
+
+        document.getElementById('nextPageBtn').addEventListener('click', () => {
+            currentState.page++;
+            document.getElementById('pageIndicator').innerText = currentState.page;
+            fetchRecipes();
+        });
+
+        // Initial data fetch on load
+        fetchRecipes();
+    </script>
+</body>
+</html>
