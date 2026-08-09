@@ -69,7 +69,7 @@
                     <input id="searchInput" type="text" placeholder="Search recipe keyword..." class="p-2 border rounded w-full sm:w-auto flex-1">
                     <select id="dietFilter" class="p-2 border rounded w-full sm:w-auto">
                         <option value="all">All Diet Types</option>
-                        <option value="vegetarian">Vegetarian</option>
+                        <!-- Populated dynamically from API filterOptions.dietTypes -->
                     </select>
                 </div>
             </section>
@@ -104,7 +104,7 @@
     <script>
         let currentState = {
             search: '',
-            diet: 'all',
+            diet: 'vegan', // Default to Vegan
             page: 1,
             limit: 9
         };
@@ -131,17 +131,18 @@
             const select = document.getElementById('dietFilter');
             select.innerHTML = '<option value="all">All Diet Types</option>';
             
-            // Explicitly ensure Vegetarian is added along with dynamic API options
-            const optionsList = ['Vegetarian', ...(dietTypes || [])];
-            // Deduplicate options if needed
-            const uniqueOptions = [...new Set(optionsList)];
-
-            uniqueOptions.forEach(diet => {
-                const opt = document.createElement('option');
-                opt.value = diet.toLowerCase();
-                opt.textContent = diet;
-                select.appendChild(opt);
-            });
+            if (dietTypes && Array.isArray(dietTypes)) {
+                dietTypes.forEach(diet => {
+                    const opt = document.createElement('option');
+                    opt.value = diet.toLowerCase();
+                    opt.textContent = diet;
+                    if (diet.toLowerCase() === 'vegan') {
+                        opt.selected = true;
+                        currentState.diet = 'vegan';
+                    }
+                    select.appendChild(opt);
+                });
+            }
         }
 
         async function fetchRecipes() {
@@ -161,7 +162,7 @@
                 fullCachedRecipes = [
                     { recipeName: "Vegan Quinoa Salad", dietType: "Vegan", calories: 350, protein: 12, carbs: 45 },
                     { recipeName: "Keto Avocado Egg Bowl", dietType: "Keto", calories: 450, protein: 22, carbs: 5 },
-                    { recipeName: "Vegetarian Lentil Soup", dietType: "Vegetarian", calories: 300, protein: 15, carbs: 40 },
+                    { recipeName: "Dash Mediterranean Plate", dietType: "Dash", calories: 300, protein: 15, carbs: 40 },
                     { recipeName: "Paleo Grilled Chicken", dietType: "Paleo", calories: 500, protein: 40, carbs: 2 }
                 ];
                 applyClientFiltersAndRender();
